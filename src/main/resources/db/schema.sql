@@ -108,10 +108,11 @@ CREATE TABLE IF NOT EXISTS admin (
 -- =============================================
 -- 初始数据：默认管理员账号
 -- 用户名: admin
--- 密码: admin123 (BCrypt加密)
+-- 密码: admin123 (BCrypt加密, cost=10)
+-- Hash generated via Python bcrypt, converted to $2a$ format for Java
 -- =============================================
 INSERT INTO admin (username, password_hash) VALUES 
-('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6v5EH');
+('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeMiMwiT/hYv/GXAzJLiUmBNwmYD4kh02');
 
 -- =============================================
 -- 验证表创建

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -24,13 +25,26 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
     
     /**
+     * 生成请求追踪ID
+     */
+    private String generateTraceId(HttpServletRequest request) {
+        Object traceId = request.getAttribute("traceId");
+        if (traceId != null) {
+            return traceId.toString();
+        }
+        String newTraceId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        request.setAttribute("traceId", newTraceId);
+        return newTraceId;
+    }
+    
+    /**
      * 处理业务异常
      */
     @ExceptionHandler(BusinessException.class)
     @ResponseStatus(HttpStatus.OK)
     public Result<Void> handleBusinessException(BusinessException e, HttpServletRequest request) {
         log.warn("Business exception: {} at {}", e.getMessage(), request.getRequestURI());
-        return Result.error(e.getCode(), e.getMessage(), e.getUserMessage(), request.getRequestId());
+        return Result.error(e.getCode(), e.getMessage(), e.getUserMessage(), generateTraceId(request));
     }
     
     /**
@@ -43,7 +57,7 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
         log.warn("Validation failed: {} at {}", message, request.getRequestURI());
-        return Result.error(ErrorCode.INVALID_PARAMETER, message, "请检查输入内容", request.getRequestId());
+        return Result.error(ErrorCode.INVALID_PARAMETER, message, "请检查输入内容", generateTraceId(request));
     }
     
     /**
@@ -56,7 +70,7 @@ public class GlobalExceptionHandler {
                 .map(ConstraintViolation::getMessage)
                 .collect(Collectors.joining(", "));
         log.warn("Constraint violation: {} at {}", message, request.getRequestURI());
-        return Result.error(ErrorCode.INVALID_PARAMETER, message, "请检查输入内容", request.getRequestId());
+        return Result.error(ErrorCode.INVALID_PARAMETER, message, "请检查输入内容", generateTraceId(request));
     }
     
     /**
@@ -66,7 +80,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public Result<Void> handleSecurityException(SecurityException e, HttpServletRequest request) {
         log.warn("Security exception: {} at {}", e.getMessage(), request.getRequestURI());
-        return Result.error(ErrorCode.UNAUTHORIZED, e.getMessage(), "请重新登录", request.getRequestId());
+        return Result.error(ErrorCode.UNAUTHORIZED, e.getMessage(), "请重新登录", generateTraceId(request));
     }
     
     /**
@@ -80,7 +94,7 @@ public class GlobalExceptionHandler {
             ErrorCode.INTERNAL_ERROR, 
             e.getMessage(), 
             "系统繁忙，请稍后重试", 
-            request.getRequestId()
+            generateTraceId(request)
         );
     }
 }
