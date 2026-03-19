@@ -2,6 +2,7 @@ package com.kaidianmiao.service;
 
 import com.kaidianmiao.dto.*;
 import com.kaidianmiao.entity.Order;
+import com.kaidianmiao.enums.OrderStatus;
 
 import java.util.List;
 
@@ -49,4 +50,18 @@ public interface OrderService {
      * 更新订单
      */
     void updateOrder(Order order);
+    
+    /**
+     * 获取管理后台数据统计
+     */
+    DashboardResponse getDashboardStats();
+    
+    /**
+     * 获取管理后台订单列表（分页）
+     * @param page 页码
+     * @param size 每页大小
+     * @param status 订单状态筛选（可选）
+     * @return 分页订单列表
+     */
+    PageResponse<AdminOrderListItem> getAdminOrders(Integer page, Integer size, OrderStatus status);
 }

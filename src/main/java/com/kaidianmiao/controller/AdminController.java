@@ -2,11 +2,9 @@ package com.kaidianmiao.controller;
 
 import com.kaidianmiao.common.ErrorCode;
 import com.kaidianmiao.common.Result;
-import com.kaidianmiao.dto.AdminLoginRequest;
-import com.kaidianmiao.dto.AdminLoginResponse;
-import com.kaidianmiao.dto.PendingOrderResponse;
-import com.kaidianmiao.dto.VerifyOrderRequest;
+import com.kaidianmiao.dto.*;
 import com.kaidianmiao.entity.Admin;
+import com.kaidianmiao.enums.OrderStatus;
 import com.kaidianmiao.security.JwtTokenProvider;
 import com.kaidianmiao.service.AdminService;
 import com.kaidianmiao.service.OrderService;
@@ -33,6 +31,7 @@ public class AdminController {
     
     /**
      * 管理员登录
+     * POST /api/admin/login
      */
     @PostMapping("/login")
     public Result<AdminLoginResponse> login(@Valid @RequestBody AdminLoginRequest request) {
@@ -68,14 +67,62 @@ public class AdminController {
     }
     
     /**
+     * 获取管理后台数据统计
+     * GET /api/admin/dashboard
+     */
+    @GetMapping("/dashboard")
+    public Result<DashboardResponse> getDashboard(HttpServletRequest request) {
+        // 验证管理员权限
+        String role = (String) request.getAttribute("role");
+        if (!"admin".equals(role)) {
+            return Result.error(ErrorCode.ADMIN_REQUIRED, "需要管理员权限", "需要管理员权限");
+        }
+        
+        DashboardResponse dashboard = orderService.getDashboardStats();
+        return Result.success(dashboard);
+    }
+    
+    /**
+     * 获取全部订单列表（分页）
+     * GET /api/admin/orders?page=1&size=20&status=pending_verify
+     */
+    @GetMapping("/orders")
+    public Result<PageResponse<AdminOrderListItem>> getOrders(
+            HttpServletRequest request,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "20") Integer size,
+            @RequestParam(required = false) String status) {
+        
+        // 验证管理员权限
+        String role = (String) request.getAttribute("role");
+        if (!"admin".equals(role)) {
+            return Result.error(ErrorCode.ADMIN_REQUIRED, "需要管理员权限", "需要管理员权限");
+        }
+        
+        // 解析状态参数
+        OrderStatus orderStatus = null;
+        if (status != null && !status.isEmpty()) {
+            try {
+                orderStatus = OrderStatus.fromValue(status);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid order status: {}", status);
+                return Result.error(ErrorCode.INVALID_PARAMETER, "无效的订单状态", "无效的订单状态");
+            }
+        }
+        
+        PageResponse<AdminOrderListItem> result = orderService.getAdminOrders(page, size, orderStatus);
+        return Result.success(result);
+    }
+    
+    /**
      * 获取待审核订单列表
      * GET /api/admin/orders/pending
      */
     @GetMapping("/orders/pending")
     public Result<List<PendingOrderResponse>> getPendingOrders(HttpServletRequest request) {
         // 验证管理员权限
-        Long adminId = (Long) request.getAttribute("adminId");
-        if (adminId == null) {
+        String role = (String) request.getAttribute("role");
+        if (!"admin".equals(role)) {
             return Result.error(ErrorCode.ADMIN_REQUIRED, "需要管理员权限", "需要管理员权限");
         }
         
@@ -93,10 +140,16 @@ public class AdminController {
             @PathVariable("id") Long orderId,
             @Valid @RequestBody VerifyOrderRequest verifyRequest) {
         
-        // 验证管理员权限
-        Long adminId = (Long) request.getAttribute("adminId");
-        if (adminId == null) {
+        // 验证管理员权限并获取 adminId
+        String role = (String) request.getAttribute("role");
+        if (!"admin".equals(role)) {
             return Result.error(ErrorCode.ADMIN_REQUIRED, "需要管理员权限", "需要管理员权限");
+        }
+        
+        // JWT 中 subject 就是 id，存储在 userId 属性中
+        Long adminId = (Long) request.getAttribute("userId");
+        if (adminId == null) {
+            return Result.error(ErrorCode.UNAUTHORIZED, "未授权", "请先登录");
         }
         
         orderService.verifyOrder(adminId, orderId, verifyRequest);

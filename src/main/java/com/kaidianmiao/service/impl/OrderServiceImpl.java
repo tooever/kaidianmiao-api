@@ -1,6 +1,7 @@
 package com.kaidianmiao.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.kaidianmiao.common.BusinessException;
 import com.kaidianmiao.common.ErrorCode;
 import com.kaidianmiao.dto.*;
@@ -9,7 +10,6 @@ import com.kaidianmiao.entity.Order;
 import com.kaidianmiao.entity.PaymentLog;
 import com.kaidianmiao.entity.User;
 import com.kaidianmiao.enums.OrderStatus;
-import com.kaidianmiao.enums.TaskStatus;
 import com.kaidianmiao.mapper.OrderMapper;
 import com.kaidianmiao.mapper.PaymentLogMapper;
 import com.kaidianmiao.service.AnalysisTaskService;
@@ -22,7 +22,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Random;
@@ -263,6 +265,130 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public void updateOrder(Order order) {
         orderMapper.updateById(order);
+    }
+    
+    @Override
+    public DashboardResponse getDashboardStats() {
+        // 获取今日时间范围
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime todayEnd = LocalDate.now().atTime(LocalTime.MAX);
+        
+        // 总订单数
+        Long totalOrders = orderMapper.selectCount(
+            new LambdaQueryWrapper<Order>()
+        );
+        
+        // 待审核订单数
+        Long pendingOrders = orderMapper.selectCount(
+            new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, OrderStatus.PENDING_VERIFY)
+        );
+        
+        // 已支付订单数
+        Long paidOrders = orderMapper.selectCount(
+            new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, OrderStatus.PAID)
+        );
+        
+        // 总收入（已支付订单的金额总和）
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+        List<Order> paidOrderList = orderMapper.selectList(
+            new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, OrderStatus.PAID)
+                .select(Order::getAmount)
+        );
+        for (Order order : paidOrderList) {
+            if (order.getAmount() != null) {
+                totalRevenue = totalRevenue.add(order.getAmount());
+            }
+        }
+        
+        // 总用户数（有订单的不重复用户）
+        List<Order> distinctUsers = orderMapper.selectList(
+            new LambdaQueryWrapper<Order>()
+                .select(Order::getUserId)
+                .groupBy(Order::getUserId)
+        );
+        Long totalUsers = (long) distinctUsers.size();
+        
+        // 总报告数（已支付订单关联的任务数）
+        List<Order> paidOrdersForReports = orderMapper.selectList(
+            new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, OrderStatus.PAID)
+                .select(Order::getTaskId)
+        );
+        Long totalReports = (long) paidOrdersForReports.size();
+        
+        // 今日订单数
+        Long todayOrders = orderMapper.selectCount(
+            new LambdaQueryWrapper<Order>()
+                .ge(Order::getCreatedAt, todayStart)
+                .le(Order::getCreatedAt, todayEnd)
+        );
+        
+        // 今日收入
+        BigDecimal todayRevenue = BigDecimal.ZERO;
+        List<Order> todayPaidOrders = orderMapper.selectList(
+            new LambdaQueryWrapper<Order>()
+                .eq(Order::getStatus, OrderStatus.PAID)
+                .ge(Order::getCreatedAt, todayStart)
+                .le(Order::getCreatedAt, todayEnd)
+                .select(Order::getAmount)
+        );
+        for (Order order : todayPaidOrders) {
+            if (order.getAmount() != null) {
+                todayRevenue = todayRevenue.add(order.getAmount());
+            }
+        }
+        
+        return DashboardResponse.builder()
+                .totalOrders(totalOrders)
+                .pendingOrders(pendingOrders)
+                .paidOrders(paidOrders)
+                .totalRevenue(totalRevenue)
+                .totalUsers(totalUsers)
+                .totalReports(totalReports)
+                .todayOrders(todayOrders)
+                .todayRevenue(todayRevenue)
+                .build();
+    }
+    
+    @Override
+    public PageResponse<AdminOrderListItem> getAdminOrders(Integer page, Integer size, OrderStatus status) {
+        // 构建查询条件
+        LambdaQueryWrapper<Order> queryWrapper = new LambdaQueryWrapper<>();
+        if (status != null) {
+            queryWrapper.eq(Order::getStatus, status);
+        }
+        queryWrapper.orderByDesc(Order::getCreatedAt);
+        
+        // 分页查询
+        Page<Order> pageParam = new Page<>(page, size);
+        Page<Order> result = orderMapper.selectPage(pageParam, queryWrapper);
+        
+        // 转换为响应对象
+        List<AdminOrderListItem> items = result.getRecords().stream().map(order -> {
+            User user = userService.findById(order.getUserId());
+            String nickname = user != null ? user.getNickname() : "未知用户";
+            
+            return AdminOrderListItem.builder()
+                    .id(order.getId())
+                    .orderNo(order.getOrderNo())
+                    .userId(order.getUserId())
+                    .userNickname(nickname)
+                    .taskId(order.getTaskId())
+                    .productType(order.getProductType())
+                    .productName(getProductName(order.getProductType()))
+                    .amount(order.getAmount())
+                    .status(order.getStatus().getValue())
+                    .statusLabel(order.getStatus().getLabel())
+                    .createdAt(order.getCreatedAt())
+                    .userConfirmTime(order.getUserConfirmTime())
+                    .adminVerifyTime(order.getAdminVerifyTime())
+                    .build();
+        }).collect(Collectors.toList());
+        
+        return PageResponse.of(items, result.getTotal(), page, size);
     }
     
     /**

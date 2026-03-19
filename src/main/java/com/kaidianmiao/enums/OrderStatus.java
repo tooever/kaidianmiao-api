@@ -24,4 +24,16 @@ public enum OrderStatus {
         this.value = value;
         this.label = label;
     }
+    
+    /**
+     * 根据值获取枚举
+     */
+    public static OrderStatus fromValue(String value) {
+        for (OrderStatus status : values()) {
+            if (status.getValue().equals(value)) {
+                return status;
+            }
+        }
+        throw new IllegalArgumentException("Unknown order status: " + value);
+    }
 }
