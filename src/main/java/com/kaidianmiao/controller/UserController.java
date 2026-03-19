@@ -2,11 +2,13 @@ package com.kaidianmiao.controller;
 
 import com.kaidianmiao.common.ErrorCode;
 import com.kaidianmiao.common.Result;
+import com.kaidianmiao.dto.OrderListItemResponse;
 import com.kaidianmiao.dto.UpdateUserRequest;
 import com.kaidianmiao.dto.UserReportListItem;
 import com.kaidianmiao.dto.UserResponse;
 import com.kaidianmiao.entity.User;
 import com.kaidianmiao.service.AnalysisTaskService;
+import com.kaidianmiao.service.OrderService;
 import com.kaidianmiao.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -27,6 +29,7 @@ public class UserController {
     
     private final UserService userService;
     private final AnalysisTaskService analysisTaskService;
+    private final OrderService orderService;
     
     /**
      * 获取当前用户信息
@@ -91,5 +94,20 @@ public class UserController {
         
         List<UserReportListItem> reports = analysisTaskService.getUserReports(userId);
         return Result.success(reports);
+    }
+    
+    /**
+     * 获取用户订单列表
+     * GET /api/user/orders
+     */
+    @GetMapping("/orders")
+    public Result<List<OrderListItemResponse>> getUserOrders(HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) {
+            return Result.error(ErrorCode.UNAUTHORIZED, "未授权", "请先登录");
+        }
+        
+        List<OrderListItemResponse> orders = orderService.getUserOrders(userId);
+        return Result.success(orders);
     }
 }

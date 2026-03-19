@@ -44,8 +44,8 @@ public class AnalysisTaskController {
         
         Long taskId = analysisTaskService.createTask(userId, createRequest);
         
-        // 触发异步 Mock 分析
-        mockAnalysisService.executeMockAnalysis(taskId);
+        // 注意：Mock 分析在管理员审核通过后触发，此处不再触发
+        // mockAnalysisService.executeMockAnalysis(taskId);
         
         Map<String, Long> data = new HashMap<>();
         data.put("taskId", taskId);

@@ -4,13 +4,19 @@ import com.kaidianmiao.common.ErrorCode;
 import com.kaidianmiao.common.Result;
 import com.kaidianmiao.dto.AdminLoginRequest;
 import com.kaidianmiao.dto.AdminLoginResponse;
+import com.kaidianmiao.dto.PendingOrderResponse;
+import com.kaidianmiao.dto.VerifyOrderRequest;
 import com.kaidianmiao.entity.Admin;
 import com.kaidianmiao.security.JwtTokenProvider;
 import com.kaidianmiao.service.AdminService;
+import com.kaidianmiao.service.OrderService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 管理员控制器
@@ -23,6 +29,7 @@ public class AdminController {
     
     private final AdminService adminService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final OrderService orderService;
     
     /**
      * 管理员登录
@@ -58,5 +65,41 @@ public class AdminController {
         
         log.info("Admin login successful: {}", request.getUsername());
         return Result.success(response);
+    }
+    
+    /**
+     * 获取待审核订单列表
+     * GET /api/admin/orders/pending
+     */
+    @GetMapping("/orders/pending")
+    public Result<List<PendingOrderResponse>> getPendingOrders(HttpServletRequest request) {
+        // 验证管理员权限
+        Long adminId = (Long) request.getAttribute("adminId");
+        if (adminId == null) {
+            return Result.error(ErrorCode.ADMIN_REQUIRED, "需要管理员权限", "需要管理员权限");
+        }
+        
+        List<PendingOrderResponse> orders = orderService.getPendingOrders();
+        return Result.success(orders);
+    }
+    
+    /**
+     * 审核订单
+     * POST /api/admin/order/{id}/verify
+     */
+    @PostMapping("/order/{id}/verify")
+    public Result<Void> verifyOrder(
+            HttpServletRequest request,
+            @PathVariable("id") Long orderId,
+            @Valid @RequestBody VerifyOrderRequest verifyRequest) {
+        
+        // 验证管理员权限
+        Long adminId = (Long) request.getAttribute("adminId");
+        if (adminId == null) {
+            return Result.error(ErrorCode.ADMIN_REQUIRED, "需要管理员权限", "需要管理员权限");
+        }
+        
+        orderService.verifyOrder(adminId, orderId, verifyRequest);
+        return Result.success();
     }
 }
