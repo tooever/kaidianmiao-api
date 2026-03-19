@@ -1,15 +1,20 @@
 package com.kaidianmiao.controller;
 
+import com.kaidianmiao.common.ErrorCode;
 import com.kaidianmiao.common.Result;
 import com.kaidianmiao.dto.UpdateUserRequest;
+import com.kaidianmiao.dto.UserReportListItem;
 import com.kaidianmiao.dto.UserResponse;
 import com.kaidianmiao.entity.User;
+import com.kaidianmiao.service.AnalysisTaskService;
 import com.kaidianmiao.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 用户控制器
@@ -21,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
     
     private final UserService userService;
+    private final AnalysisTaskService analysisTaskService;
     
     /**
      * 获取当前用户信息
@@ -70,5 +76,20 @@ public class UserController {
                 .build();
         
         return Result.success(response);
+    }
+    
+    /**
+     * 获取用户报告列表
+     * GET /api/user/reports
+     */
+    @GetMapping("/reports")
+    public Result<List<UserReportListItem>> getUserReports(HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) {
+            return Result.error(ErrorCode.UNAUTHORIZED, "未授权", "请先登录");
+        }
+        
+        List<UserReportListItem> reports = analysisTaskService.getUserReports(userId);
+        return Result.success(reports);
     }
 }
