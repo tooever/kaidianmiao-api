@@ -56,7 +56,7 @@ public class AdminOrderListItem {
     /**
      * 状态值
      */
-    private Integer status;
+    private String status;
     
     /**
      * 状态标签
