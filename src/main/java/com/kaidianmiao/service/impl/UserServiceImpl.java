@@ -28,12 +28,29 @@ public class UserServiceImpl implements UserService {
     }
     
     @Override
+    public User findByPhone(String phone) {
+        return userMapper.findByPhone(phone);
+    }
+    
+    @Override
     public User createUser(String openid) {
         User user = new User();
         user.setOpenid(openid);
         user.setNickname("开店喵用户");
         userMapper.insert(user);
         log.info("Created new user with openid: {}", openid);
+        return user;
+    }
+    
+    @Override
+    public User save(User user) {
+        if (user.getId() == null) {
+            userMapper.insert(user);
+            log.info("Created new user with phone: {}", user.getPhone());
+        } else {
+            userMapper.updateById(user);
+            log.info("Updated user: {}", user.getId());
+        }
         return user;
     }
     

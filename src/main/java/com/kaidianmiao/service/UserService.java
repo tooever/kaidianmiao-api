@@ -18,9 +18,19 @@ public interface UserService {
     User findById(Long id);
     
     /**
+     * 根据手机号查找用户
+     */
+    User findByPhone(String phone);
+    
+    /**
      * 创建新用户
      */
     User createUser(String openid);
+    
+    /**
+     * 保存用户（新建或更新）
+     */
+    User save(User user);
     
     /**
      * 更新用户信息

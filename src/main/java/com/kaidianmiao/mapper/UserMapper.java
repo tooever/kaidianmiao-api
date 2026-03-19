@@ -13,4 +13,7 @@ public interface UserMapper extends BaseMapper<User> {
     
     @Select("SELECT * FROM user WHERE openid = #{openid}")
     User findByOpenid(String openid);
+    
+    @Select("SELECT * FROM user WHERE phone = #{phone}")
+    User findByPhone(String phone);
 }
